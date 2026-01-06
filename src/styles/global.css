@@ -1,8 +1,7 @@
 @tailwind base;
-@tailwind componenst;
+@tailwind components;
 @tailwind utilities;
 
 body {
-    @apply bg-purple-800 text-gray-100;
-    -webkit-font-smoothing: antialised;
+  @apply bg-purple-800 text-gray-100;
 }
