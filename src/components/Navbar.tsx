@@ -2,12 +2,14 @@ import { signOut } from "firebase/auth";
 import { toast } from "react-toastify";
 import { auth, storage, db } from "../firebase/firebaseConection";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { useState, useRef, Fragment } from "react";
+import { useState, useRef, Fragment, useContext } from "react";
 import { Transition, Dialog } from "@headlessui/react";
 import type { Post } from "../models/interfaces/Post";
 import { addDoc, collection } from "firebase/firestore";
+import UserEmailContext from "../context/UserEmail";
+import { CollectionsFirebase } from "../models/enums/collectionsFirebase";
 
-function Navbar() {
+function Navbar({handleGetPost}: { handleGetPost: () => void}) {
   const [isLoading, setIsLoading] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const [isNewPostFormValid, setIsNewPostFormValid] = useState(true);
@@ -18,8 +20,9 @@ function Navbar() {
   const [postContentInput, setPostContentInput] = useState("");
   const [postImgFile, setPostImgFile] = useState<File | null>(null);
   const cancelButtonRef = useRef(null);
+  const { email } = useContext(UserEmailContext);
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (): Promise<void> => {
     await signOut(auth)
       .then(() => toast.success("Logout feito com sucesso!"))
       .catch(() => toast.error("Ocorreu um erro, tente novamante!"));
@@ -28,7 +31,7 @@ function Navbar() {
   const handleInputForm = (
     event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>,
     state: React.Dispatch<React.SetStateAction<string>>
-  ) => {
+  ): void => {
     const eventTarget = event.currentTarget as HTMLTextAreaElement;
     const eventValue = eventTarget.value;
 
@@ -36,100 +39,99 @@ function Navbar() {
     console.log(eventValue);
   };
 
-  const handlePostImagemInput = (event: React.FormEvent<HTMLInputElement>) => {
+  const handlePostImagemInput = (
+    event: React.FormEvent<HTMLInputElement>
+  ): void => {
     const eventTarget = event.target as HTMLInputElement;
     const file: File | null = eventTarget.files && eventTarget.files[0];
 
     setPostImgFile(file);
   };
 
-  const handleCreateNewPost = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateNewPost = (
+    event: React.FormEvent<HTMLFormElement>
+  ): void => {
     event.preventDefault();
-
-    if (
-      postTitleInput.trim().length === 0 ||
-      postAutorInput.trim().length === 0 ||
-      postContentInput.trim().length === 0
-    ) {
-      setIsNewPostFormValid(false);
-      toast.error("Preencha todos os campos!");
-      return;
-    }
-
-    if (!postImgFile) {
-      toast.error("Selecione uma imagem!");
-      return;
-    }
-
-    setIsNewPostFormValid(true);
     setIsLoading(true);
 
-    console.log("SUBMIT DISPARADO");
-    console.log("Arquivo:", postImgFile);
+    if (
+      postTitleInput.trim().length > 0 &&
+      postAutorInput.trim().length > 0 &&
+      postContentInput.trim().length > 0 &&
+      postImgFile !== null
+    ) {
+      setIsNewPostFormValid(true);
 
-    const storageRef = ref(storage, `images/${postImgFile.name}`);
-    const uplodTask = uploadBytesResumable(storageRef, postImgFile);
+      const storageRef = ref(storage, `images/${postImgFile.name}`);
+      const uplodTask = uploadBytesResumable(storageRef, postImgFile);
 
-    console.log("UPLOAD INICIADO");
+      uplodTask.on(
+        "state_changed",
+        (snapshot) => {
+          //.then
+          const progress =
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setProgress(progress);
+        },
+        () => {
+          setIsLoading(false);
+          toast.error("Erro no upload da imagem!");
+        },
 
-    uplodTask.on(
-      "state_changed",
-      (snapshot) => {
-        //.then
-        const progress =
-          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setProgress(progress);
-      },
-      () => {
-        setIsLoading(false);
-        toast.error("Erro no upload da imagem!");
-      },
+        async () => {
+          void (await getDownloadURL(uplodTask.snapshot.ref)
+            .then(async (url) => {
+              if (url) {
+                setImgUrl(url);
+                const currentDate = getCurrentDate();
+                const postObject: Post = {
+                  author: postAutorInput,
+                  title: postTitleInput,
+                  content: postContentInput,
+                  imgUrl: url,
+                  userEmail: email,
+                  creationDate: currentDate,
+                };
 
-      async () => {
-        void (await getDownloadURL(uplodTask.snapshot.ref)
-          .then(async (url) => {
-            if (url) {
-              setImgUrl(url);
-              const currentDate = getCurrentDate();
-              const postObject: Post = {
-                author: postAutorInput,
-                title: postTitleInput,
-                content: postContentInput,
-                imgUrl: url,
-                userEmail: "teste@teste.com",
-                creationDate: currentDate,
-              };
-
-              await addDoc(collection(db, "posts"), postObject)
-                .then(() => {
-                  setIsLoading(false);
-                  setPostTitleInput("");
-                  setPostContentInput("");
-                  setPostAutorInput("");
-                  setImgUrl("");
-                  setProgress(0);
-                  setOpenModal(false);
-                  toast.success("Post criado com sucesso!");
-                })
-                .catch(() => {
-                  setIsLoading(false);
-                  setPostTitleInput("");
-                  setPostContentInput("");
-                  setPostAutorInput("");
-                  setImgUrl("");
-                  setProgress(0);
-                  setOpenModal(false);
-                  toast.error("Erro ao criar o Post!");
-                });
-            }
-            // Buscar os posts para exibir na tela
-          })
-          .catch(() => {
-            setIsLoading(false);
-            toast.error("Erro ao criar o Post!");
-          }));
-      }
-    );
+                await addDoc(collection(db, CollectionsFirebase.POSTS), postObject)
+                  .then(() => {
+                    setIsLoading(false);
+                    setPostTitleInput("");
+                    setPostContentInput("");
+                    setPostAutorInput("");
+                    setImgUrl("");
+                    setProgress(0);
+                    setIsNewPostFormValid(true);
+                    setOpenModal(false);
+                    setPostImgFile(null);
+                    toast.success("Post criado com sucesso!");
+                    handleGetPost();
+                  })
+                  .catch(() => {
+                    setIsLoading(false);
+                    setPostTitleInput("");
+                    setPostContentInput("");
+                    setPostAutorInput("");
+                    setImgUrl("");
+                    setProgress(0);
+                    setOpenModal(false);
+                    setPostImgFile(null);
+                    toast.error("Erro ao criar o Post, tente novamente!");
+                  });
+              }
+              // Buscar os posts para exibir na tela
+            })
+            .catch(() => {
+              setIsLoading(false);
+              toast.error("Erro ao fazer Upload da imagem!");
+            }));
+        }
+      );
+    } else {
+      setIsLoading(false);
+      setIsNewPostFormValid(false);
+      toast.warn("Preencha os campos corretamente!");
+    }
   };
 
   const getCurrentDate = (): string => {
@@ -139,6 +141,18 @@ function Navbar() {
     const currentMonth = String(date.getMonth() + 1).padStart(2, "0");
     const currentYear = date.getFullYear();
     return `${currentDay}/${currentMonth}/${currentYear}`;
+  };
+
+  const handleCloseModal = (): void => {
+    setIsLoading(false);
+    setPostTitleInput("");
+    setPostContentInput("");
+    setPostAutorInput("");
+    setImgUrl("");
+    setProgress(0);
+    setIsNewPostFormValid(true)
+    setOpenModal(false);
+    setPostImgFile(null);
   };
 
   return (
@@ -199,7 +213,7 @@ function Navbar() {
           as="div"
           className="relative z-10 "
           initialFocus={cancelButtonRef}
-          onClose={setOpenModal}
+          onClose={handleCloseModal}
         >
           <Transition.Child
             as={Fragment}
@@ -283,7 +297,11 @@ function Navbar() {
                           onChange={handlePostImagemInput}
                           type="file"
                           placeholder="Digite o Conteúdo"
-                          className="w-full cursor-pointer rounded-lg mt-2 p-2 bg-purple-700 focus:bg-purple-800 border-2 border-purple-800 focus:border-orange-700 focus:outline-none focus:placeholder-transparent"
+                          className={`w-full rounded-lg mt-2 p-2 ${
+                            isNewPostFormValid
+                              ? `bg-purple-700 focus:bg-purple-800 `
+                              : `bg-red-700 focus:bg-red-800`
+                          } bg-purple-700 focus:bg-purple-800 border-2 border-purple-800 focus:border-orange-700 focus:outline-none focus:placeholder-transparent`}
                         />
                       </div>
 
@@ -307,7 +325,7 @@ function Navbar() {
                         {isLoading ? "Criando post..." : "Criar"}
                       </button>
                       <button
-                        onClick={() => setOpenModal(false)}
+                        onClick={handleCloseModal}
                         disabled={isLoading}
                         type="button"
                         className="w-full py-2 bg-red-500 shadow-lg enabled:hover:shadow-red-500/40 texte-white font-semibold rounded-lg disabled:bg-red-400 disabled:shadow-none enabled:shadow-red-500/50"
