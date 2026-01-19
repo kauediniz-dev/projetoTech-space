@@ -1,4 +1,3 @@
-import { parsePath } from "react-router-dom";
 import type { Post } from "../models/interfaces/Post";
 
 function Posts({ posts }: { posts: Array<Post> }) {
