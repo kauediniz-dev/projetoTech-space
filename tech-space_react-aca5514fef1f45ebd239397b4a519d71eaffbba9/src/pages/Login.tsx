@@ -1,4 +1,4 @@
-import loginImg from "../assets/daniel-korpai-HyTwtsk8XqA-unsplash.jpg";
+import loginImg from "../assets/daniel.jpg";
 
 function Login() {
   return (
@@ -24,7 +24,10 @@ function Login() {
           </h2>
           <div className="flex flex-col text-white py-2">
             <label>Email</label>
-            <input type="email" className="rounded-lg mt-2 p-2 bg-purple-700 focus:bg-orange-700 focus:outline-none focus:placeholder-transparent border-2 border-purple-800 " />
+            <input
+              type="email"
+              className="rounded-lg mt-2 p-2 bg-purple-700 focus:bg-orange-700 focus:outline-none focus:placeholder-transparent border-2 border-purple-800 "
+            />
           </div>
         </form>
       </div>
