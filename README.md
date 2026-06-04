@@ -28,3 +28,7 @@ Esse projeto foi desenvolvido com as seguintes tecnologias:
 ## 💻 Projeto
 
 Tech Space é uma rede social geek criada para conectar apaixonados por tecnologia, games e cultura pop, oferecendo um espaço para compartilhar posts, imagens e experiências.
+
+## Link
+
+https://tech-space-9208b.web.app
